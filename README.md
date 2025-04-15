@@ -1,6 +1,6 @@
 # Auckland Cycleways Live Counter
 
-![Auckland Cycleways Counter](https://via.placeholder.com/800x400?text=Auckland+Cycleways+Counter)
+![Auckland Cycleways Counter Demo](./assets/counter-demo.gif)
 
 ## Overview
 
