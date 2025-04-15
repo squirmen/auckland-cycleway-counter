@@ -40,6 +40,7 @@ const hourlyProfiles = {
   // Additional profiles...
 };
 ```
+![Hourly Cycling Profiles](./assets/hourly_cycle_profiles_all.png)
 
 The system:
 1. Determines the current day type (weekday/weekend/holiday)
