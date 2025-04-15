@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Live Auckland Cycleways Counter - Tracking cycling trips and CO₂ emissions saved" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://cycleway.tfwelch.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <link rel="preconnect" href="https://cycleway.tfwelch.com">
+  <title>Auckland Cycleways Live Counter</title>
+  <style>
+    :root {
+      --primary-color: #388e3c;
+      --bg-color: #f3f4f6;
+      --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --text-color: #333;
+      --text-secondary: #555;
+      --text-tertiary: #888;
+      --border-radius: 12px;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+      transition: background-color 0.3s ease;
+      overflow-x: hidden;
+    }
+    
+    .counter-box {
+      background: white;
+      border-radius: var(--border-radius);
+      padding: 30px 30px 20px;
+      box-shadow: var(--box-shadow);
+      text-align: center;
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      transition: all 0.3s ease;
+    }
+    
+    .counter-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    
+    .counter-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+    
+    .counter-values {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .counter-value {
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      transition: color 0.2s ease;
+    }
+    
+    .co2-counter {
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+    
+    .co2-label {
+      font-size: 0.8rem;
+      color: var(--primary-color);
+      margin-bottom: 4px;
+    }
+    
+    .co2-value {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+    
+    .footer {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: var(--text-tertiary);
+    }
+    
+    .button-row {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .embed-button {
+      font-size: 0.7rem;
+      padding: 4px 6px;
+      background: #eee;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+    }
+    
+    .embed-button:hover {
+      background: #ddd;
+    }
+    
+    .embed-button:focus {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      padding: 20px;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: var(--border-radius);
+      width: 90%;
+      max-width: 500px;
+    }
+    
+    .modal-content h4 {
+      margin-bottom: 10px;
+    }
+    
+    .modal-content code {
+      display: block;
+      background: #f0f0f0;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    
+    button {
+      padding: 8px 12px;
+      background: #388e3c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background-color 0.2s ease;
+    }
+    
+    button:hover {
+      background: #2e7d32;
+    }
+    
+    .loading-indicator {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      margin-right: 0.5em;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: loading 1s linear infinite;
+      vertical-align: middle;
+    }
+    
+    @keyframes loading {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    
+    /* Animation for value changes */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .pulse {
+      animation: pulse 0.3s ease-in-out;
+    }
+
+    /* Add embed-specific modifications */
+    .embed-options {
+      margin: 10px 0 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .embed-options label {
+      margin-right: 15px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    #customSizeControls {
+      margin-top: 10px;
+      width: 100%;
+      display: flex;
+      gap: 10px;
+    }
+    
+    #customSizeControls input {
+      width: 60px;
+      padding: 2px 5px;
+    }
+    
+    /* Improvements for cross-domain iframe compatibility */
+    .iframe-resize-sensor {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      z-index: -1;
+      border: none;
+      overflow: hidden;
+      pointer-events: none;
+      visibility: hidden;
+    }
+    
+    /* Compact mode styling */
+    body.compact-view .counter-box {
+      padding: 15px 15px 10px;
+    }
+    
+    body.compact-view .counter-title {
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+    
+    body.compact-view .counter-value {
+      font-size: 1.5rem;
+    }
+    
+    body.compact-view .co2-value {
+      font-size: 1.1rem;
+    }
+    
+    body.compact-view .footer {
+      font-size: 0.65rem;
+    }
+    
+    /* Print styles */
+    @media print {
+      body {
+        background: white;
+      }
+      
+      .counter-box {
+        box-shadow: none;
+        border: 1px solid #ccc;
+      }
+      
+      .embed-button {
+        display: none;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .counter-box {
+        padding: 25px 20px 15px;
+      }
+      
+      .counter-value {
+        font-size: 1.6rem;
+      }
+      
+      .co2-value {
+        font-size: 1.1rem;
+      }
+    }
+
+    /* Fallback for no JS */
+    .no-js-message {
+      display: none;
+      padding: 10px;
+      text-align: center;
+      margin-top: 10px;
+      background: #fff3cd;
+      border: 1px solid #ffecb5;
+      border-radius: 4px;
+      color: #856404;
+    }
+    
+    html.no-js .no-js-message {
+      display: block;
+    }
+    
+    html.no-js .js-only {
+      display: none;
+    } 1.1rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+    
+    .counter-values {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .counter-value {
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      transition: color 0.2s ease;
+    }
+    
+    .co2-counter {
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+    
+    .co2-label {
+      font-size: 0.8rem;
+      color: var(--primary-color);
+      margin-bottom: 4px;
+    }
+    
+    .co2-value {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+    
+    .footer {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: var(--text-tertiary);
+    }
+    
+    .button-row {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .embed-button, .theme-toggle {
+      font-size: 0.7rem;
+      padding: 4px 6px;
+      background: #eee;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+    }
+    
+    .embed-button:hover, .theme-toggle:hover {
+      background: #ddd;
+    }
+    
+    .embed-button:focus, .theme-toggle:focus {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      padding: 20px;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: var(--border-radius);
+      width: 90%;
+      max-width: 500px;
+    }
+    
+    .modal-content h4 {
+      margin-bottom: 10px;
+    }
+    
+    .modal-content code {
+      display: block;
+      background: #f0f0f0;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    
+    button {
+      padding: 8px 12px;
+      background: #388e3c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background-color 0.2s ease;
+    }
+    
+    button:hover {
+      background: #2e7d32;
+    }
+    
+    .loading-indicator {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      margin-right: 0.5em;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: loading 1s linear infinite;
+      vertical-align: middle;
+    }
+    
+    @keyframes loading {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .counter-box {
+        padding: 25px 20px 15px;
+      }
+      
+      .counter-value {
+        font-size: 1.6rem;
+      }
+      
+      .co2-value {
+        font-size: 1.1rem;
+      }
+    }
+
+    /* Animation for value changes */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .pulse {
+      animation: pulse 0.3s ease-in-out;
+    }
+
+    /* Fallback for no JS */
+    .no-js-message {
+      display: none;
+      padding: 10px;
+      text-align: center;
+      margin-top: 10px;
+      background: #fff3cd;
+      border: 1px solid #ffecb5;
+      border-radius: 4px;
+      color: #856404;
+    }
+    
+    html.no-js .no-js-message {
+      display: block;
+    }
+    
+    html.no-js .js-only {
+      display: none;
+    }
+  </style>
+  <script>
+    // Add no-js class that will be removed when JS loads
+    document.documentElement.classList.add('no-js');
+    
+    // Feature detection and polyfill loading
+    if (!window.ResizeObserver) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/resize-observer-polyfill@1.5.1/dist/ResizeObserver.min.js';
+      document.head.appendChild(script);
+    }
+      // Clipboard API polyfill
+      if (!navigator.clipboard) {
+        // Simple fallback for clipboard
+        navigator.clipboard = {
+          writeText: function(text) {
+            return new Promise((resolve, reject) => {
+              try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            });
+          }
+        };
+      }
+      
+      // Fetch API polyfill
+      if (!window.fetch) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js';
+        document.head.appendChild(script);
+      }
+      
+      // requestAnimationFrame polyfill
+      if (!window.requestAnimationFrame) {
+        window.requestAnimationFrame = function(callback) {
+          return window.setTimeout(function() {
+            callback(Date.now());
+          }, 1000 / 60);
+        };
+      }
+     
+      // Establish communication early with parent frame
+      if (window.parent !== window) {
+        window.addEventListener('load', function() {
+          sendHeightToParent();
+        });
+      }
+
+      // Track communication attempts
+      let communicationAttempts = 0;
+      const MAX_COMMUNICATION_ATTEMPTS = 3;
+
+      function sendHeightToParent() {
+        if (window.parent === window) return; // Not in an iframe
+        
+        try {
+          const height = document.body.scrollHeight;
+          const message = { 
+            type: 'resize', 
+            height: height,
+            id: Date.now().toString() // Unique ID for this message
+          };
+          
+          // Track if message was acknowledged
+          let messageAcknowledged = false;
+          communicationAttempts++;
+          
+          // Create a message listener for acknowledgment
+          const messageListener = function(event) {
+            // Basic origin checking could be added here if needed
+            // if (event.origin !== "https://expected-parent-domain.com") return;
+            
+            try {
+              // Check if this is an acknowledgment for our message
+              if (event.data && 
+                  event.data.type === 'resize-ack' && 
+                  event.data.id === message.id) {
+                
+                messageAcknowledged = true;
+                window.removeEventListener('message', messageListener);
+                communicationAttempts = 0; // Reset attempts counter on success
+              }
+            } catch (err) {
+              console.warn('Error processing message from parent:', err);
+            }
+          };
+          
+          // Listen for the acknowledgment
+          window.addEventListener('message', messageListener);
+          
+          // Send the height message
+          window.parent.postMessage(message, '*');
+          
+          // Set a timeout to check if we got a response
+          setTimeout(function() {
+            if (!messageAcknowledged) {
+              // Clean up the event listener
+              window.removeEventListener('message', messageListener);
+              
+              console.warn(`No acknowledgment received (attempt ${communicationAttempts} of ${MAX_COMMUNICATION_ATTEMPTS})`);
+              
+              // Retry a limited number of times
+              if (communicationAttempts < MAX_COMMUNICATION_ATTEMPTS) {
+                setTimeout(sendHeightToParent, 1000); // Wait 1 second before retrying
+              } else {
+                console.error('Maximum communication attempts reached. Parent frame may not be listening.');
+                communicationAttempts = 0; // Reset for future attempts
+              }
+            }
+          }, 2000); // Wait 2 seconds for acknowledgment
+          
+        } catch(e) {
+          console.error('Error communicating with parent frame:', e);
+          communicationAttempts = 0; // Reset on error
+        }
+      }
+
+  </script>
+</head>
+<body>
+  <div class="counter-box" id="counterBox" title="Live count includes all actual trips through 31 Mar 2025. Estimated trips since then are based on hourly weekday/weekend patterns from past years." data-version="1.2.0">
+    <noscript>
+      <div class="no-js-message">
+        This counter requires JavaScript to display live updates. Please enable JavaScript for the full experience.
+      </div>
+    </noscript>
+    <div class="button-row">
+      <button class="embed-button" onclick="showModal()" aria-label="Show embed code">Embed</button>
+    </div>
+    
+    <div class="counter-title">Auckland Cycleways Estimated Trips</div>
+    <div class="counter-values">
+      <div>
+        <div class="counter-label">2025 YTD</div>
+        <div class="counter-value" id="tripCounter" aria-live="polite">0</div>
+      </div>
+      <div>
+        <div class="counter-label">Today</div>
+        <div class="counter-value" id="dailyCounter" aria-live="polite">0</div>
+      </div>
+    </div>
+    <div class="co2-counter" title="CO₂ savings calculated based on average trip length of 4.8km and 192g CO₂/km emissions avoided by cycling instead of driving (Auckland Transport data). Each cycling trip saves approximately 0.92kg of CO₂.">
+      <div class="co2-label">CO₂ Emissions Saved</div>
+      <div class="co2-value" id="co2Counter" aria-live="polite">0</div>
+    </div>
+    <div class="footer" id="footerNote">
+      <span class="loading-indicator" id="loadingIndicator"></span>
+      Loading data...
+    </div>
+  </div>
+
+  <div class="modal" id="embedModal" role="dialog" aria-labelledby="embedModalTitle" aria-hidden="true">
+    <div class="modal-content">
+      <h4 id="embedModalTitle">Embed this counter:</h4>
+      <div class="embed-options">
+        <label>
+          <input type="radio" name="embedSize" value="standard" checked> Standard
+        </label>
+        <label>
+          <input type="radio" name="embedSize" value="compact"> Compact
+        </label>
+        <label>
+          <input type="radio" name="embedSize" value="custom"> Custom
+        </label>
+        <div id="customSizeControls" style="display: none;">
+          <label>Width: <input type="number" id="customWidth" value="600" min="200" max="1200">px</label>
+          <label>Height: <input type="number" id="customHeight" value="170" min="100" max="500">px</label>
+        </div>
+      </div>
+      <code id="embedCode">&lt;iframe src='https://cycleway.tfwelch.com/cycle-counter/' style='border:none;width:100%;max-width:600px;height:170px;' loading='lazy' title='Auckland Cycleways Counter'&gt;&lt;/iframe&gt;</code>
+      <div style="display: flex; justify-content: space-between;">
+        <button onclick="copyEmbedCode()" id="copyButton">Copy to clipboard</button>
+        <button onclick="hideModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Remove no-js class when JavaScript is enabled
+    document.documentElement.classList.remove('no-js');
+    
+    let baseYTD = 0;
+    let ytdDisplayed = 0;
+    let dailyDisplayed = 0;
+    let co2Saved = 0;
+    let startTimestamp = null;
+    let lastUpdateTime = null;
+    let lastUpdatedValue = {
+      ytd: 0,
+      daily: 0,
+      co2: 0
+    };
+    
+    const CACHE_KEY = 'cycle_counter_data';
+    const CACHE_EXPIRY = 60 * 60 * 1000; // 1 hour in milliseconds
+    const LOCAL_STORAGE_AVAILABLE = storageAvailable('localStorage');
+    
+    const tripCounter = document.getElementById("tripCounter");
+    const dailyCounter = document.getElementById("dailyCounter");
+    const co2Counter = document.getElementById("co2Counter");
+    const footerNote = document.getElementById("footerNote");
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    // CO2 calculation constants for Auckland
+    const CO2_PER_TRIP = 0.92; // kg of CO2 saved per average trip (4.8km)
+
+    const avgByDay = {
+      weekday: 9600,
+      weekend: 8200,
+      holiday: 7254,
+      summer: 10167,
+      autumn: 9900,
+      winter: 9536,
+      spring: 9014
+    };
+
+  const hourlyProfiles = {
+    weekday: [0.0009, 0.0009, 0.0009, 0.0009, 0.0009, 0.0215, 0.0653, 0.1307,
+              0.0869, 0.0547, 0.044, 0.0547, 0.0653, 0.0547, 0.0869, 0.1091,
+              0.1307, 0.0547, 0.0332, 0.0161, 0.0107, 0.0053, 0.0036, 0.0018],
+    weekend: [0.0007, 0.0007, 0.0007, 0.0007, 0.0007, 0.0082, 0.0332, 0.0664,
+              0.0827, 0.099, 0.1153, 0.1153, 0.1153, 0.099, 0.0827, 0.0664,
+              0.0413, 0.025, 0.0161, 0.012, 0.0082, 0.0041, 0.0027, 0.0014],
+    holiday: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01, 0.03, 0.06,
+              0.08, 0.10, 0.11, 0.11, 0.11, 0.10, 0.08, 0.06,
+              0.04, 0.02, 0.01, 0.005, 0.003, 0.002, 0.0015, 0.001],
+    summer:  [0.001, 0.001, 0.001, 0.001, 0.001, 0.012, 0.032, 0.065,
+              0.09, 0.11, 0.12, 0.12, 0.11, 0.10, 0.08, 0.06,
+              0.04, 0.02, 0.01, 0.006, 0.004, 0.002, 0.0015, 0.001],
+    autumn:  [0.001, 0.001, 0.001, 0.001, 0.001, 0.015, 0.045, 0.11,
+              0.09, 0.07, 0.06, 0.07, 0.08, 0.07, 0.08, 0.09,
+              0.10, 0.05, 0.03, 0.015, 0.01, 0.005, 0.003, 0.002],
+    winter:  [0.001, 0.001, 0.001, 0.001, 0.001, 0.01, 0.03, 0.07,
+              0.08, 0.07, 0.06, 0.06, 0.07, 0.06, 0.07, 0.08,
+              0.07, 0.04, 0.02, 0.01, 0.007, 0.003, 0.002, 0.001],
+    spring:  [0.001, 0.001, 0.001, 0.001, 0.001, 0.012, 0.04, 0.08,
+              0.10, 0.11, 0.12, 0.12, 0.11, 0.09, 0.08, 0.07,
+              0.05, 0.03, 0.015, 0.01, 0.006, 0.003, 0.002, 0.001]
+  };
+
+    function formatNumber(n) {
+      return n.toLocaleString("en-NZ");
+    }
+
+    function getSeason(month) {
+    if ([12, 1, 2].includes(month)) return 'summer';
+    if ([3, 4, 5].includes(month)) return 'autumn';
+    if ([6, 7, 8].includes(month)) return 'winter';
+    return 'spring';
+  }
+
+  function isHoliday(date) {
+    const holidays = [
+      '2023-01-01','2023-01-02','2023-02-06','2023-04-07','2023-04-10',
+      '2023-04-25','2023-06-05','2023-10-23','2023-12-25','2023-12-26',
+      '2024-01-01','2024-01-02','2024-02-06','2024-03-29','2024-04-01',
+      '2024-04-25','2024-06-03','2024-10-28','2024-12-25','2024-12-26',
+      '2025-01-01','2025-01-02','2025-02-06','2025-04-18','2025-04-21',
+      '2025-04-25','2025-06-02','2025-10-27','2025-12-25','2025-12-26'
+    ];
+    const yyyyMMdd = date.toISOString().split('T')[0];
+    return holidays.includes(yyyyMMdd);
+  }
+
+  function getBaseDaily(date) {
+    if (isHoliday(date)) return avgByDay.holiday;
+    if (date.getDay() === 0 || date.getDay() === 6) return avgByDay.weekend;
+
+    const season = getSeason(date.getMonth() + 1); // +1 because getMonth() is 0-based
+    return avgByDay[season] || avgByDay.weekday;
+  }
+
+  function getHourlyShare(date) {
+    const hour = date.getHours();
+    let profile;
+
+    if (isHoliday(date)) {
+      profile = hourlyProfiles.holiday;
+    } else if (date.getDay() === 0 || date.getDay() === 6) {
+      profile = hourlyProfiles.weekend;
+    } else {
+      const season = getSeason(date.getMonth() + 1);
+      profile = hourlyProfiles[season] || hourlyProfiles.weekday;
+    }
+
+    const total = profile.reduce((sum, val) => sum + val, 0);
+    return profile[hour] / total;
+  }
+    
+    function animateValue(element, value) {
+      const currentValue = parseInt(element.textContent.replace(/[^\d]/g, ''));
+      const newValue = Math.floor(value);
+      
+      if (Math.abs(newValue - currentValue) > 10) {
+        element.classList.add('pulse');
+        setTimeout(() => {
+          element.classList.remove('pulse');
+        }, 300);
+      }
+      
+      return newValue;
+    }
+
+    function updateCounters(timestamp) {
+      if (!lastUpdateTime) lastUpdateTime = timestamp;
+      const delta = (timestamp - lastUpdateTime) / 1000;
+      lastUpdateTime = timestamp;
+
+      const now = new Date();
+      const baseDaily = getBaseDaily(now);
+      const share = getHourlyShare(now);
+      const perSecond = (baseDaily * share) / 3600;
+      const increment = perSecond * delta;
+
+      ytdDisplayed += increment;
+      dailyDisplayed += increment;
+      co2Saved = ytdDisplayed * CO2_PER_TRIP;
+      
+      // Check if values have changed enough to update display and animate
+      if (Math.abs(ytdDisplayed - lastUpdatedValue.ytd) > 1) {
+        const newValue = animateValue(tripCounter, ytdDisplayed);
+        tripCounter.textContent = formatNumber(newValue);
+        lastUpdatedValue.ytd = ytdDisplayed;
+      }
+      
+      if (Math.abs(dailyDisplayed - lastUpdatedValue.daily) > 1) {
+        const newValue = animateValue(dailyCounter, dailyDisplayed);
+        dailyCounter.textContent = formatNumber(newValue);
+        lastUpdatedValue.daily = dailyDisplayed;
+      }
+      
+      if (Math.abs(co2Saved - lastUpdatedValue.co2) > 1) {
+        let displayText;
+        
+        // Format CO2 based on amount
+        if (co2Saved >= 1000) {
+          const tonnes = Math.floor(co2Saved / 1000);
+          displayText = formatNumber(tonnes) + " tonnes";
+        } else {
+          const kg = Math.floor(co2Saved);
+          displayText = formatNumber(kg) + " kg";
+        }
+        
+        const currentText = co2Counter.textContent;
+        if (displayText !== currentText) {
+          co2Counter.classList.add('pulse');
+          setTimeout(() => {
+            co2Counter.classList.remove('pulse');
+          }, 300);
+          co2Counter.textContent = displayText;
+        }
+        
+        lastUpdatedValue.co2 = co2Saved;
+      }
+
+      requestAnimationFrame(updateCounters);
+    }
+
+// Define the handler outside both functions
+let modalKeydownHandler;
+
+function showModal() {
+  const modal = document.getElementById("embedModal");
+  modal.style.display = "flex";
+  modal.setAttribute("aria-hidden", "false");
+  
+  // Focus trap for accessibility
+  const focusableElements = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  
+  firstElement.focus();
+  
+  // Create a new handler each time showModal is called
+  modalKeydownHandler = (event) => {
+    if (event.key === 'Escape') {
+      hideModal();
+    }
+    
+    // Trap focus
+    if (event.key === 'Tab') {
+      if (event.shiftKey) {
+        if (document.activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+  };
+  
+  document.addEventListener('keydown', modalKeydownHandler);
+  modal.dataset.keyListener = true;
+}
+
+function hideModal() {
+  const modal = document.getElementById("embedModal");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  
+  // Remove event listener using the stored reference
+  if (modal.dataset.keyListener && modalKeydownHandler) {
+    document.removeEventListener('keydown', modalKeydownHandler);
+    modal.dataset.keyListener = false;
+  }
+  
+  // Return focus to button that opened modal
+  document.querySelector('.embed-button').focus();
+}
+    
+    // Update embed code based on selected size
+    function updateEmbedCode() {
+    const embedType = document.querySelector('input[name="embedSize"]:checked').value;
+    const customWidth = document.getElementById('customWidth').value;
+    const customHeight = document.getElementById('customHeight').value;
+    const embedCodeElement = document.getElementById('embedCode');
+    
+    let embedHtml = '';
+    let width = '600';
+    let height = '170';
+    let classes = '';
+    
+    switch (embedType) {
+      case 'compact':
+        width = '400';
+        height = '140';
+        classes = ' class="compact-view"';
+        break;
+      case 'custom':
+        width = customWidth;
+        height = customHeight;
+        break;
+      default: // standard
+        width = '600';
+        height = '170';
+    }
+    
+    embedHtml = `&lt;iframe src='https://cycleway.tfwelch.com/cycle-counter/'${classes} style='border:none;width:100%;max-width:${width}px;height:${height}px;' loading='lazy' title='Auckland Cycleways Counter'&gt;&lt;/iframe&gt;`;
+    
+    embedCodeElement.textContent = embedHtml;
+  }
+
+    function copyEmbedCode() {
+      // Make sure we have the latest embed code
+      updateEmbedCode();
+      
+      const embedCode = document.getElementById("embedCode").textContent;
+      navigator.clipboard.writeText(embedCode)
+        .then(() => {
+          const copyButton = document.getElementById("copyButton");
+          const originalText = copyButton.textContent;
+          copyButton.textContent = "Copied!";
+          setTimeout(() => {
+            copyButton.textContent = originalText;
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('Failed to copy: ', err);
+          alert('Failed to copy embed code. Please select and copy manually.');
+        });
+    }
+    
+    // Check if storage is available
+    function storageAvailable(type) {
+      let storage;
+      try {
+        storage = window[type];
+        const x = '__storage_test__';
+        storage.setItem(x, x);
+        storage.removeItem(x);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function initializeCounters(lastUpdatedDate) {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const baseDaily = getBaseDaily(now);
+      
+      // Calculate trips since last data update
+      let estimatedTripsSinceLastUpdate = 0;
+      
+      // Parse the last updated date (format: "31 Mar 2025")
+      function parseDate(dateString) {
+        try {
+          // Try to parse with built-in date parser first
+          const parsed = new Date(dateString);
+          if (!isNaN(parsed.getTime())) return parsed;
+          
+          // Fallback to manual parsing for "DD MMM YYYY" format
+          const regex = /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/i;
+          const match = dateString.match(regex);
+          
+          if (match) {
+            const day = parseInt(match[1], 10);
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const month = monthNames.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+            const year = parseInt(match[3], 10);
+            
+            return new Date(year, month, day);
+          }
+          
+          // Last resort - use current date
+          console.warn("Could not parse date: " + dateString);
+          return new Date();
+        } catch (e) {
+          console.error("Error parsing date:", e);
+          return new Date(); // Fallback to current date
+        }
+      }
+
+      // Usage:
+      const lastDataDate = parseDate(lastUpdatedDate);
+      
+      // Calculate days between last data date and today (excluding today)
+      const endOfLastData = new Date(lastDataDate);
+      endOfLastData.setHours(23, 59, 59, 999);
+      const startOfDayAfterLastData = new Date(lastDataDate);
+      startOfDayAfterLastData.setDate(startOfDayAfterLastData.getDate() + 1);
+      startOfDayAfterLastData.setHours(0, 0, 0, 0);
+      
+      // Calculate full days between last data and today
+      let currentDate = new Date(startOfDayAfterLastData);
+      while (currentDate < startOfToday) {
+        estimatedTripsSinceLastUpdate += getBaseDaily(currentDate);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Calculate today's trips using the hourly profile method (same as animation)
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+      const profile = (now.getDay() === 0 || now.getDay() === 6) ? hourlyProfiles.weekend : hourlyProfiles.weekday;
+      const totalProfileWeight = profile.reduce((sum, val) => sum + val, 0);
+      
+      let todayTrips = 0;
+      
+      // Add complete hours
+      for (let h = 0; h < currentHour; h++) {
+        todayTrips += baseDaily * (profile[h] / totalProfileWeight);
+      }
+      
+      // Add partial current hour
+      const currentHourWeight = profile[currentHour];
+      const currentHourFraction = (currentMinute * 60 + currentSecond) / 3600;
+      todayTrips += baseDaily * (currentHourWeight / totalProfileWeight) * currentHourFraction;
+      
+      // Initialize counters
+      ytdDisplayed = baseYTD + estimatedTripsSinceLastUpdate + todayTrips;
+      dailyDisplayed = todayTrips;
+      co2Saved = ytdDisplayed * CO2_PER_TRIP;
+      
+      // Update the display immediately before animation begins
+      tripCounter.textContent = formatNumber(Math.floor(ytdDisplayed));
+      lastUpdatedValue.ytd = ytdDisplayed;
+      
+      dailyCounter.textContent = formatNumber(Math.floor(dailyDisplayed));
+      lastUpdatedValue.daily = dailyDisplayed;
+      
+      // Format CO2 based on amount
+      if (co2Saved >= 1000) {
+        const tonnes = Math.floor(co2Saved / 1000);
+        co2Counter.textContent = formatNumber(tonnes) + " tonnes";
+      } else {
+        const kg = Math.floor(co2Saved);
+        co2Counter.textContent = formatNumber(kg) + " kg";
+      }
+      lastUpdatedValue.co2 = co2Saved;
+      
+      // Start the animation
+      requestAnimationFrame(updateCounters);
+      
+      // Hide loading indicator
+      loadingIndicator.style.display = 'none';
+    }
+    
+    function loadData() {
+      // Check if we have valid cached data
+      if (LOCAL_STORAGE_AVAILABLE) {
+        try {
+          const cachedData = localStorage.getItem(CACHE_KEY);
+          if (cachedData) {
+            const { timestamp, data, lastUpdated } = JSON.parse(cachedData);
+            // Use cache if it's less than CACHE_EXPIRY old
+            if (Date.now() - timestamp < CACHE_EXPIRY) {
+              baseYTD = data;
+              footerNote.textContent = `Last data update: ${lastUpdated}. Estimating live trends since.`;
+              initializeCounters(lastUpdated);
+              // Make background fetch to update cache
+              fetchDataAndUpdateCache(true);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('Error reading from cache:', e);
+          // Continue to fetch data if cache read fails
+        }
+      }
+      
+      // Fetch fresh data if no valid cache
+      fetchDataAndUpdateCache(false);
+    }
+    
+    function fetchDataAndUpdateCache(inBackground) {
+      fetch("https://cycleway.tfwelch.com/data/cycleway_data_annual.json")
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Network response error: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          let total = 0;
+          let lastUpdated = "";
+          for (const [key, records] of Object.entries(data)) {
+            if (key === "Combined Total") continue;
+            const record = records.find(r => r.date === "2025");
+            if (record) {
+              total += record.count;
+              lastUpdated = record.updated || "31 Mar 2025";
+            }
+          }
+          
+          // Save to cache
+          if (LOCAL_STORAGE_AVAILABLE) {
+            try {
+              localStorage.setItem(CACHE_KEY, JSON.stringify({
+                timestamp: Date.now(),
+                data: total,
+                lastUpdated
+              }));
+            } catch (e) {
+              console.error('Error writing to cache:', e);
+            }
+          }
+          
+          // Only initialize if not already done via cache
+          if (!inBackground) {
+            baseYTD = total;
+            footerNote.textContent = `Last data update: ${lastUpdated}. Estimating live trends since.`;
+            initializeCounters(lastUpdated);
+          }
+        })
+        .catch(err => {
+          console.error("Error loading data:", err);
+          
+          if (!inBackground) {
+            // Fallback data
+            baseYTD = 1009960;
+            const fallbackLastUpdated = "31 Mar 2025";
+            footerNote.textContent = "Using fallback data. Live trends estimated.";
+            initializeCounters(fallbackLastUpdated);
+          }
+        });
+    }
+// Add event listeners for keyboard accessibility
+document.addEventListener('DOMContentLoaded', () => {
+  // Close modal when clicking outside
+  window.onclick = (event) => {
+    const modal = document.getElementById("embedModal");
+    if (event.target === modal) {
+      hideModal();
+    }
+  };
+  
+  // Add resize observer to adjust container height for iframes
+  const resizeObserver = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      // If we're in an iframe, notify the parent of our height
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'resize',
+          height: document.body.scrollHeight
+        }, '*');
+      }
+    }
+  });
+  
+  resizeObserver.observe(document.querySelector('.counter-box'));
+  
+  // Add event listeners for embed size options
+  const sizeOptions = document.querySelectorAll('input[name="embedSize"]');
+  sizeOptions.forEach(option => {
+    option.addEventListener('change', function() {
+      // Toggle custom size inputs visibility
+      const customControls = document.getElementById('customSizeControls');
+      customControls.style.display = this.value === 'custom' ? 'flex' : 'none';
+      
+      // Update the embed code
+      updateEmbedCode();
+    });
+  });
+  
+  // Add event listeners for custom size inputs
+  const customWidth = document.getElementById('customWidth');
+  const customHeight = document.getElementById('customHeight');
+  
+  customWidth.addEventListener('input', updateEmbedCode);
+  customHeight.addEventListener('input', updateEmbedCode);
+  
+  // Add validation for custom width
+  customWidth.addEventListener('change', function() {
+    const value = parseInt(this.value, 10);
+    const min = parseInt(this.min, 10) || 200;
+    const max = parseInt(this.max, 10) || 1200;
+    
+    if (isNaN(value) || value < min) {
+      this.value = min;
+    } else if (value > max) {
+      this.value = max;
+    }
+    
+    updateEmbedCode();
+  });
+  
+  // Add validation for custom height
+  customHeight.addEventListener('change', function() {
+    const value = parseInt(this.value, 10);
+    const min = parseInt(this.min, 10) || 100;
+    const max = parseInt(this.max, 10) || 500;
+    
+    if (isNaN(value) || value < min) {
+      this.value = min;
+    } else if (value > max) {
+      this.value = max;
+    }
+    
+    updateEmbedCode();
+  });
+  
+  // Initialize embed code
+  updateEmbedCode();
+});
+
+    // Start loading data
+    loadData();
+  </script>
+</body>
+</html>
